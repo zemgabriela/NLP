@@ -205,4 +205,21 @@ def create_sequence_list(X, y, word_dict, tag_dict):
         sequence_list.add_sequence(sent_x, sent_y, LabelDictionary(word_dict), LabelDictionary(tag_dict))
 
     return sequence_list
+
+
+
+def evaluate(data_,model,y_true,tag_dict):
+
+    predictions = []
+
+    for i in tqdm(range(len(data_)), desc="Predicting tags", unit="sequence"):
+        predicted_tag = model.predict_tags_given_words(data_[i])
+        predictions.append(predicted_tag)
+
+    predictions = [np.ndarray.tolist(array) for array in predictions]
+    predictions = np.concatenate(predictions).ravel().tolist()
+
+    print(f1_score_weighted(y_true, predictions))
+    print(accuracy(y_true, predictions))
+    plot_confusion_matrix(y_true, predictions, tag_dict)
 ############################################################################################################
