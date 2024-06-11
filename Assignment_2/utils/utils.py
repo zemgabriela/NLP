@@ -17,6 +17,8 @@ from skseq.sequences.extended_feature import ExtendedFeatures
 from skseq.sequences.structured_perceptron import StructuredPerceptron
 from tensorflow.keras.models import load_model
 import pickle
+from sklearn.metrics import classification_report
+
 
 from IPython.display import display, HTML
 
@@ -240,7 +242,7 @@ def save_p(path, data):
         path (str): The path to save the pickle file.
         data (object): The data to be saved.
     """
-    with open(path, "wb") as f:
+    with open("fitted_models\\"+path, "wb") as f:
         pickle.dump(data, f)
 
 
@@ -309,7 +311,7 @@ def evaluate(data_, model, data_tag_pos, corpus_tag_dict, y_true, name, load=Fal
         y_pred = [tag for array in list_y_pred for tag in array]
 
         # Save predictions
-        save_p("predictions/" + name, y_pred)
+        save_p("predictions/" + name+".pkl", y_pred)
     
         # Calculate F1 score and accuracy
         f1_score = f1_score_weighted(y_true, y_pred)
@@ -329,7 +331,7 @@ def evaluate(data_, model, data_tag_pos, corpus_tag_dict, y_true, name, load=Fal
     else:
         # Load previously saved metrics and predictions
         metrics = pd.read_csv("results/" + name + ".csv")
-        y_pred = load_p("fitted_models/predictions/" + name)
+        y_pred = load_p("fitted_models/predictions/" + name+".pkl")
     
     # Display metrics
     print("Metrics:")
@@ -341,5 +343,12 @@ def evaluate(data_, model, data_tag_pos, corpus_tag_dict, y_true, name, load=Fal
     # Print confusion matrix
     print("\nConfusion Matrix\n")
     plot_confusion_matrix(y_true, y_pred, feasible_dict)
+    
+    print("\nMetrics by tag\n")
+    display(HTML(pd.DataFrame(classification_report(
+                y_true,y_pred,output_dict=True)).transpose().drop(["support"],axis=1).rename(
+                index={str(v): k for k, v in corpus_tag_dict.items()}).to_html()))
+    
+    return(metrics)
 
 ############################################################################################################
