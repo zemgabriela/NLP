@@ -1,299 +1,137 @@
 from skseq.sequences.id_feature import IDFeatures
 from skseq.sequences.id_feature import UnicodeFeatures
 
-# ----------
-# Feature Class
-# Extracts features from a labeled corpus (only supported features are extracted
-# ----------
+
 class ExtendedFeatures(IDFeatures):
+    """
+    Class to add various emission features for a given word in a sequence.
+
+    Function:
+    add_emission_features: Adds various emission features based on the given word in the sequence.
+
+    Input:
+    - sequence: The sequence of words.
+    - pos: The position of the current word in the sequence.
+    - y: The tag ID for the current word.
+    - features: The list to which features will be appended.
+
+    Output:
+    - The updated list of features with new features appended.
+    """
 
     def add_emission_features(self, sequence, pos, y, features):
-        x = sequence.x[pos]
-        # Get tag name from ID.
-        y_name = self.dataset.y_dict.get_label_name(y)
+        # Get the word and tag name from the sequence
+        word = str(sequence.x[pos])
+        tag_name = self.dataset.y_dict.get_label_name(y)
 
-        # Get word name from ID.
-        if isinstance(x, str):
-            x_name = x
-        else:
-            x_name = self.dataset.x_dict.get_label_name(x)
+        # List to hold features to add
+        features_to_add = [
+            ("id:%s::%s" % (word, tag_name), word),
+            ("capi_ini::%s" % tag_name, word[0].isupper()),
+            ("digit::%s" % tag_name, word.isdigit()),
+            ("insidedigit::%s" % tag_name, any(char.isdigit() for char in word) and not word.isdigit()),
+        ]
 
-        word = str(x_name)
-        # Generate feature name.
-        feat_name = "id:%s::%s" % (word, y_name)
-        # Get feature ID from name.
-        feat_id = self.add_feature(feat_name)
-        # Append feature.
-        if feat_id != -1:
-            features.append(feat_id)
+        # Dictionary of characters to features
+        char_to_features = {
+            '.': 'inside_point',
+            '-': 'hyphen'
+        }
 
-        # Suffixes
-        # max_suffix = 3
-        # for i in range(max_suffix):
-        #     if len(word) > i+1:
-        #         suffix = word[-(i+1):]
-        #         # Generate feature name.
-        #         feat_name = "suffix:%s::%s" % (suffix, y_name)
-        #         # Get feature ID from name.
-        #         feat_id = self.add_feature(feat_name)
-        #         # Append feature.
-        #         if feat_id != -1:
-        #             features.append(feat_id)
+        # Add features based on characters
+        for char, feature_prefix in char_to_features.items():
+            features_to_add.append((f"{feature_prefix}::{tag_name}", char in word))
 
-        #First letter is capitalized
-        if word[0].isupper():
-            # Generate feature name.
-            feat_name = "capi_ini::%s" % y_name
-            # Get feature ID from name.
-            feat_id = self.add_feature(feat_name)
-            # Append feature.
-            if feat_id != -1:
-                features.append(feat_id)
+        # List of suffixes
+        suffixes = ['ing', 'ed', 'ness', 'ship', 'ity', 'ty', 'ly']
 
-        #Any other letter is capitalized      
-        if len(word)>1 and not str.islower(word[1:]):
-            # Generate feature name.
-            feat_name = "capi_any::%s" % y_name
-            # Get feature ID from name.
-            feat_id = self.add_feature(feat_name)
-            # Append feature.
-            if feat_id != -1:
-                features.append(feat_id)
+        # Add features based on suffixes
+        for suffix in suffixes:
+            features_to_add.append((f"ending_{suffix}::{tag_name}", word.endswith(suffix)))
 
+        # Dictionary of words to features
+        words_to_features = {
+            'to': 'prep_to',
+            'of': 'prep_of',
+            'from': 'prep_from',
+            'the': 'article_the'
+        }
 
-        #We encounter a digit
-        if str.isdigit(word):
-            # Generate feature name.
-            feat_name = "digit::%s" % y_name
-            # Get feature ID from name.
-            feat_id = self.add_feature(feat_name)
-            # Append feature.
-            if feat_id != -1:
-                features.append(feat_id)
+        # Add features based on specific words
+        if word in words_to_features:
+            features_to_add.append((f"{words_to_features[word]}::{tag_name}", True))
 
-        #Word contains a digit
-        if any(char.isdigit() for char in word) and not str.isdigit(word):
-            # Generate feature name.
-            feat_name = "insidedigit::%s" % y_name
-            # Get feature ID from name.
-            feat_id = self.add_feature(feat_name)
-            # Append feature.
-            if feat_id != -1:
-                features.append(feat_id)
+        # Process features and add them to the list if conditions are met
+        for feature_name, condition in features_to_add:
+            if condition:
+                feature_id = self.add_feature(feature_name)
+                if feature_id != -1:
+                    features.append(feature_id)
 
-
-        #The word contains the char "point" (U.S.A)
-        if str.find(word, ".") != -1:
-            # Generate feature name.
-            feat_name = "inside_point::%s" % y_name
-            # Get feature ID from name.
-            feat_id = self.add_feature(feat_name)
-            # Append feature.
-            if feat_id != -1:
-                features.append(feat_id)
-
-        #Explicit suffixes
-        #ING     'during their trip'
-        if str.endswith(word,'ing'):
-            # Generate feature name.
-            feat_name = "ending_ing::%s" % y_name
-            # Get feature ID from name.
-            feat_id = self.add_feature(feat_name)
-            # Append feature.
-            if feat_id != -1:
-                features.append(feat_id)
-        #ED
-        if str.endswith(word,'ed'):
-            # Generate feature name.
-            feat_name = "ending_ed::%s" % y_name
-            # Get feature ID from name.
-            feat_id = self.add_feature(feat_name)
-            # Append feature.
-            if feat_id != -1:
-                features.append(feat_id)
-        #NESS
-        if str.endswith(word,'ness'):
-            # Generate feature name.
-            feat_name = "ending_ness::%s" % y_name
-            # Get feature ID from name.
-            feat_id = self.add_feature(feat_name)
-            # Append feature.
-            if feat_id != -1:
-                features.append(feat_id)
-        #SHIP
-        if str.endswith(word,'ship'):
-            # Generate feature name.
-            feat_name = "ending_ship::%s" % y_name
-            # Get feature ID from name.
-            feat_id = self.add_feature(feat_name)
-            # Append feature.
-            if feat_id != -1:
-                features.append(feat_id)
-        #ITY
-        if str.endswith(word,'ity'):
-            # Generate feature name.
-            feat_name = "ending_ity::%s" % y_name
-            # Get feature ID from name.
-            feat_id = self.add_feature(feat_name)
-            # Append feature.
-            if feat_id != -1:
-                features.append(feat_id)
-
-        #TY
-        if str.endswith(word,'ty'):
-            # Generate feature name.
-            feat_name = "ending_ty::%s" % y_name
-            # Get feature ID from name.
-            feat_id = self.add_feature(feat_name)
-            # Append feature.
-            if feat_id != -1:
-                features.append(feat_id)
-
-        #LY
-        if str.endswith(word,'ly'):
-            # Generate feature name.
-            feat_name = "ending_ly::%s" % y_name
-            # Get feature ID from name.
-            feat_id = self.add_feature(feat_name)
-            # Append feature.
-            if feat_id != -1:
-                features.append(feat_id)
-
-        #Word contains a hypen
-        if str.find(word, "-") != -1:
-            # Generate feature name.
-            feat_name = "hyphen::%s" % y_name
-            # Get feature ID from name.
-            feat_id = self.add_feature(feat_name)
-            # Append feature.
-            if feat_id != -1:
-                features.append(feat_id)
-
-        #Preposition 'to', so "Jack London went to Paris." helps identifying Paris
-        if word == 'to':
-            # Generate feature name.
-            feat_name = "prep_to::%s" % y_name
-            # Get feature ID from name.
-            feat_id = self.add_feature(feat_name)
-            # Append feature.
-            if feat_id != -1:
-                features.append(feat_id)
-
-        #Preposition 'of', so "The president of the United States of America" helps identifying America
-        if word == 'of':
-            # Generate feature name.
-            feat_name = "prep_of::%s" % y_name
-            # Get feature ID from name.
-            feat_id = self.add_feature(feat_name)
-            # Append feature.
-            if feat_id != -1:
-                features.append(feat_id)
-
-        #Preposition 'from', so "from/O Barcelona/B-org" is corrected
-        if word == 'from':
-            # Generate feature name.
-            feat_name = "prep_from::%s" % y_name
-            # Get feature ID from name.
-            feat_id = self.add_feature(feat_name)
-            # Append feature.
-            if feat_id != -1:
-                features.append(feat_id)
-
-        #Article 'the', lots of names and other tokens are followed by 'the'
-        if word == 'the':
-            # Generate feature name.
-            feat_name = "article_the::%s" % y_name
-            # Get feature ID from name.
-            feat_id = self.add_feature(feat_name)
-            # Append feature.
-            if feat_id != -1:
-                features.append(feat_id)
-
+        # Add feature for words that are not entirely lowercase after the first letter
+        if len(word) > 1 and not word[1:].islower():
+            feature_name = f"capi_ini::%s" % tag_name
+            feature_id = self.add_feature(feature_name)
+            if feature_id != -1:
+                features.append(feature_id)
 
         return features
+
 
 
 class ExtendedUnicodeFeatures(UnicodeFeatures):
 
     def add_emission_features(self, sequence, pos, y, features):
-        x = sequence.x[pos]
-        # Get tag name from ID.
-        y_name = y
+        # Get the word and tag name from the sequence
+        word = str(sequence.x[pos])
+        tag_name = y
 
-        # Get word name from ID.
-        x_name = x
+        # List to hold features
+        features = []
 
-        word = str(x_name)
-        # Generate feature name.
-        feat_name = "id:%s::%s" % (word, y_name)
-        feat_name = str(feat_name)
-        # Get feature ID from name.
-        feat_id = self.add_feature(feat_name)
-        # Append feature.
-        if feat_id != -1:
-            features.append(feat_id)
+        # Add a feature based on the word ID
+        feature_name = f"id:{word}::{tag_name}"
+        feature_id = self.add_feature(feature_name)
+        if feature_id != -1:
+            features.append(feature_id)
 
-        if str.istitle(word):
-            # Generate feature name.
-            feat_name = "uppercased::%s" % y_name
-            feat_name = str(feat_name)
+        # Check if the word is title-cased (first letter uppercase)
+        if word.istitle():
+            feature_name = f"uppercased::{tag_name}"
+            feature_id = self.add_feature(feature_name)
+            if feature_id != -1:
+                features.append(feature_id)
 
-            # Get feature ID from name.
-            feat_id = self.add_feature(feat_name)
-            # Append feature.
-            if feat_id != -1:
-                features.append(feat_id)
+        # Check if the word is a digit
+        if word.isdigit():
+            feature_name = f"number::{tag_name}"
+            feature_id = self.add_feature(feature_name)
+            if feature_id != -1:
+                features.append(feature_id)
 
-        if str.isdigit(word):
-            # Generate feature name.
-            feat_name = "number::%s" % y_name
-            feat_name = str(feat_name)
+        # Check if the word contains a hyphen
+        if '-' in word:
+            feature_name = f"hyphen::{tag_name}"
+            feature_id = self.add_feature(feature_name)
+            if feature_id != -1:
+                features.append(feature_id)
 
-            # Get feature ID from name.
-            feat_id = self.add_feature(feat_name)
-            # Append feature.
-            if feat_id != -1:
-                features.append(feat_id)
+        # Add features for suffixes (up to 3 characters)
+        for i in range(1, 4):
+            if len(word) > i:
+                suffix = word[-i:]
+                feature_name = f"suffix:{suffix}::{tag_name}"
+                feature_id = self.add_feature(feature_name)
+                if feature_id != -1:
+                    features.append(feature_id)
 
-        if str.find(word, "-") != -1:
-            # Generate feature name.
-            feat_name = "hyphen::%s" % y_name
-            feat_name = str(feat_name)
-
-            # Get feature ID from name.
-            feat_id = self.add_feature(feat_name)
-            # Append feature.
-            if feat_id != -1:
-                features.append(feat_id)
-
-        # Suffixes
-        max_suffix = 3
-        for i in range(max_suffix):
-            if len(word) > i+1:
-                suffix = word[-(i+1):]
-                # Generate feature name.
-                feat_name = "suffix:%s::%s" % (suffix, y_name)
-                feat_name = str(feat_name)
-
-                # Get feature ID from name.
-                feat_id = self.add_feature(feat_name)
-                # Append feature.
-                if feat_id != -1:
-                    features.append(feat_id)
-
-        # Prefixes
-        max_prefix = 3
-        for i in range(max_prefix):
-            if len(word) > i+1:
-                prefix = word[:i+1]
-                # Generate feature name.
-                feat_name = "prefix:%s::%s" % (prefix, y_name)
-                feat_name = str(feat_name)
-
-                # Get feature ID from name.
-                feat_id = self.add_feature(feat_name)
-                # Append feature.
-                if feat_id != -1:
-                    features.append(feat_id)
+        # Add features for prefixes (up to 3 characters)
+        for i in range(1, 4):
+            if len(word) > i:
+                prefix = word[:i]
+                feature_name = f"prefix:{prefix}::{tag_name}"
+                feature_id = self.add_feature(feature_name)
+                if feature_id != -1:
+                    features.append(feature_id)
 
         return features
